@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>Creative Sampler Prototype</title>
+  <!-- 引入 Font Awesome CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-p8mT8kSfqgnQlVra22XlL1lQ2xhnOqULdkQk5RgAnk4rHL6kuMkGbkZw8n5o0YvXgpv1V9j9W6ozJrD3Aqz2A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <!-- 引入 WaveSurfer.js -->
+  <script src="https://unpkg.com/wavesurfer.js"></script>
+  <style>
+    /* ===== 基本排版設定 ===== */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #f0f0f0;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+      color: #333;
+    }
+
+    .sampler-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.5rem;
+      width: 100%;
+      max-width: 800px;
+      padding: 1rem;
+      box-sizing: border-box;
+    }
+
+    /* ===== 上排、下排容器 ===== */
+    .top-row, .bottom-row {
+      display: flex;
+      gap: 1rem;
+    }
+
+    /* ===== 共用圓形按鈕 ===== */
+    .circle {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    .circle:active {
+      transform: none;
+    }
+
+    /* ===== 按鈕狀態樣式 ===== */
+    .recording {
+      background-color: #ff4d4d !important; /* 鮮明紅 */
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+
+    .select-mode-active {
+      background-color: #6c757d !important; /* 改變選擇按鈕顏色 */
+    }
+
+    /* ===== 上排按鈕樣式 ===== */
+    #recordBtn {
+      background-color: #e74c3c; /* 鮮明紅 */
+    }
+    #selectBtn {
+      background-color: #3498db; /* 鮮明藍 */
+    }
+    #deleteBtn {
+      background-color: #e67e22; /* 鮮明橙 */
+    }
+
+    /* ===== 下排五個播放按鈕不同顏色 ===== */
+    .pad1 {
+      background-color: #1abc9c; /* 青綠 */
+    }
+    .pad2 {
+      background-color: #9b59b6; /* 紫 */
+    }
+    .pad3 {
+      background-color: #f1c40f; /* 黃 */
+    }
+    .pad4 {
+      background-color: #e74c3c; /* 紅 */
+    }
+    .pad5 {
+      background-color: #34495e; /* 深藍 */
+    }
+
+    /* ===== 音檔狀態標示 ===== */
+    .pad-container {
+      position: relative;
+    }
+
+    .pad.has-audio::after {
+      content: '🔊';
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      font-size: 1rem;
+    }
+
+    /* ===== 被選擇按鈕的樣式 ===== */
+    .pad.selected {
+      outline: 3px solid #ffeb3b;
+      box-shadow: 0 0 0 3px rgba(255, 235, 59, 0.5);
+    }
+
+    /* ===== 錄音計時器樣式 ===== */
+    .timer {
+      font-size: 1rem;
+      margin-top: 0.5rem;
+      color: #333;
+    }
+
+    /* ===== 模式指示器樣式 ===== */
+    .mode-indicator {
+      margin-top: 1rem;
+      font-size: 1rem;
+      color: #333;
+    }
+
+    .mode-indicator.selecting {
+      color: #ff9800;
+      font-weight: bold;
+    }
+
+    /* ===== 操作說明樣式 ===== */
+    .instructions {
+      margin-top: 1.5rem;
+      font-size: 0.9rem;
+      color: #555;
+      max-width: 600px;
+      text-align: center;
+    }
+
+    /* ===== 工具提示樣式 ===== */
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 120px;
+      background-color: #333;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px 0;
+      
+      /* 定位 */
+      position: absolute;
+      z-index: 1;
+      bottom: 125%; /* 在按鈕上方 */
+      left: 50%;
+      margin-left: -60px;
+      
+      /* 動畫 */
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    /* ===== 響應式設計 ===== */
+    @media (max-width: 600px) {
+      .circle {
+        width: 50px;
+        height: 50px;
+        font-size: 0.9rem;
+      }
+
+      .sampler-container {
+        gap: 1rem;
+      }
+
+      .timer {
+        font-size: 0.9rem;
+      }
+
+      /* 調整波形圖容器寬度 */
+      #waveform {
+        width: 90%;
+      }
+    }
+
+    /* ===== 波形圖容器樣式 ===== */
+    #waveform {
+      width: 600px;
+      height: 128px;
+      margin-top: 1rem;
+      display: none; /* 初始隱藏，僅在選擇模式下顯示 */
+    }
+
+    /* ===== 消息顯示區域 ===== */
+    .message {
+      font-size: 1rem;
+      margin-top: 0.5rem;
+      color: #333;
+      min-height: 1.2rem; /* 保留空間以避免布局跳動 */
+      transition: opacity 0.5s ease;
+      opacity: 1;
+    }
+
+    .message.hidden {
+      opacity: 0;
+    }
+
+    /* 可選：不同類型的消息樣式 */
+    .message.success {
+      color: #28a745;
+    }
+
+    .message.error {
+      color: #dc3545;
+    }
+
+    /* ===== 停止錄音按鈕樣式 ===== */
+    #stopBtn {
+      background-color: #ff9800; /* 橙色 */
+      display: none; /* 初始隱藏 */
+      margin-left: 1rem;
+    }
+
+    /* ===== 錄音控制區域 ===== */
+    .record-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* ===== 錄音時長選擇器 ===== */
+    .duration-selector {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .duration-selector label {
+      font-size: 0.9rem;
+      color: #333;
+    }
+
+    .duration-selector select {
+      padding: 0.3rem;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    /* ===== 錄音暫停/繼續按鈕樣式 ===== */
+    #pauseBtn, #resumeBtn {
+      background-color: #3498db; /* 藍色 */
+      display: none; /* 初始隱藏 */
+    }
+  </style>
+</head>
+<body>
+  <h1>Creative Sampler Prototype</h1>
+  <div class="sampler-container">
+    <!-- 上排：錄音、選擇、刪除 -->
+    <div class="top-row">
+      <button id="recordBtn" class="circle tooltip" aria-label="錄音按鈕">
+        <i class="fas fa-microphone"></i>
+        <span class="tooltiptext">錄音</span>
+      </button>
+      <button id="selectBtn" class="circle tooltip" aria-label="選擇模式按鈕">
+        <i class="fas fa-hand-pointer"></i>
+        <span class="tooltiptext">選擇模式</span>
+      </button>
+      <button id="deleteBtn" class="circle tooltip" aria-label="刪除音檔按鈕">
+        <i class="fas fa-trash"></i>
+        <span class="tooltiptext">刪除音檔</span>
+      </button>
+    </div>
+
+    <!-- 錄音計時器 -->
+    <div class="timer" id="timer">00:00</div>
+
+    <!-- 消息顯示區域 -->
+    <div class="message" id="message"></div>
+
+    <!-- 波形圖容器 -->
+    <div id="waveform"></div>
+
+    <!-- 錄音控制區域 -->
+    <div class="record-controls">
+      <button id="stopBtn" class="circle tooltip" aria-label="停止錄音按鈕">
+        <i class="fas fa-stop"></i>
+        <span class="tooltiptext">停止錄音</span>
+      </button>
+      <button id="pauseBtn" class="circle tooltip" aria-label="暫停錄音按鈕">
+        <i class="fas fa-pause"></i>
+        <span class="tooltiptext">暫停錄音</span>
+      </button>
+      <button id="resumeBtn" class="circle tooltip" aria-label="繼續錄音按鈕">
+        <i class="fas fa-play"></i>
+        <span class="tooltiptext">繼續錄音</span>
+      </button>
+    </div>
+
+    <!-- 錄音時長選擇器 -->
+    <div class="duration-selector">
+      <label for="duration">錄音時長：</label>
+      <select id="duration">
+        <option value="2">2 秒</option>
+        <option value="5">5 秒</option>
+        <option value="10">10 秒</option>
+        <option value="15">15 秒</option>
+      </select>
+    </div>
+
+    <!-- 下排：五個播放按鈕 -->
+    <div class="bottom-row">
+      <div class="pad-container">
+        <button class="circle pad pad1 tooltip" data-index="0" aria-label="播放按鈕 1">
+          <span>1</span>
+          <span class="tooltiptext">播放音檔 1</span>
+        </button>
+      </div>
+      <div class="pad-container">
+        <button class="circle pad pad2 tooltip" data-index="1" aria-label="播放按鈕 2">
+          <span>2</span>
+          <span class="tooltiptext">播放音檔 2</span>
+        </button>
+      </div>
+      <div class="pad-container">
+        <button class="circle pad pad3 tooltip" data-index="2" aria-label="播放按鈕 3">
+          <span>3</span>
+          <span class="tooltiptext">播放音檔 3</span>
+        </button>
+      </div>
+      <div class="pad-container">
+        <button class="circle pad pad4 tooltip" data-index="3" aria-label="播放按鈕 4">
+          <span>4</span>
+          <span class="tooltiptext">播放音檔 4</span>
+        </button>
+      </div>
+      <div class="pad-container">
+        <button class="circle pad pad5 tooltip" data-index="4" aria-label="播放按鈕 5">
+          <span>5</span>
+          <span class="tooltiptext">播放音檔 5</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 模式指示器 -->
+    <div class="mode-indicator" id="modeIndicator">一般模式</div>
+
+    <!-- 操作說明 -->
+    <div class="instructions">
+      <p>1. 點擊「選擇模式」進入選擇模式。</p>
+      <p>2. 選擇下排按鈕後，可錄音或刪除音檔。</p>
+      <p>3. 離開選擇模式後，點擊下排按鈕播放音檔。</p>
+      <p>4. 使用鍵盤 Q W E R T 快速控制對應按鈕。</p>
+    </div>
+  </div>
+
+  <script>
+    // ===== 全局變數 =====
+    const audioClips = [[], [], [], [], []]; // 儲存五個按鈕的多個音檔
+    let selectedPadIndex = null;
+    let isSelectMode = false;
+    let mediaRecorder = null;
+    let mediaStream = null;
+    let audioChunks = [];
+    let hasRequestedMicrophone = false;
+    let timerInterval;
+    let currentRecordingDuration = 2; // 預設錄音時長（秒）
+    let wavesurfer = null; // WaveSurfer.js 實例
+
+    // 取得 DOM 元素
+    const recordBtn = document.getElementById('recordBtn');
+    const selectBtn = document.getElementById('selectBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const padButtons = document.querySelectorAll('.pad');
+    const timerDisplay = document.getElementById('timer');
+    const modeIndicator = document.getElementById('modeIndicator');
+    const messageDisplay = document.getElementById('message');
+    const durationSelector = document.getElementById('duration');
+    const waveformContainer = document.getElementById('waveform');
+
+    // ===== 輔助函式 =====
+    /**
+     * 顯示消息
+     * @param {string} text 消息內容
+     * @param {string} type 消息類型（'success' 或 'error'）
+     * @param {number} duration 消息顯示持續時間（毫秒）
+     */
+    function showMessage(text, type = '', duration = 3000) {
+      messageDisplay.textContent = text;
+      messageDisplay.className = 'message'; // 重置類別
+
+      if (type) {
+        messageDisplay.classList.add(type);
+      }
+
+      // 確保消息可見
+      messageDisplay.classList.remove('hidden');
+
+      if (duration > 0) {
+        setTimeout(() => {
+          messageDisplay.classList.add('hidden');
+        }, duration);
+      }
+    }
+
+    /**
+     * 更新錄音時長
+     */
+    function updateRecordingDuration() {
+      const selectedValue = durationSelector.value;
+      currentRecordingDuration = parseInt(selectedValue, 10);
+    }
+
+    /**
+     * 初始化 WaveSurfer.js
+     */
+    function initializeWaveSurfer() {
+      wavesurfer = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#ddd',
+        progressColor: '#ff9800',
+        height: 128,
+        responsive: true
+      });
+
+      // 播放結束時觸發
+      wavesurfer.on('finish', () => {
+        showMessage('音訊播放完畢。', 'success');
+      });
+
+      // 波形載入錯誤
+      wavesurfer.on('error', (e) => {
+        console.error(e);
+        showMessage('波形載入時發生錯誤。', 'error');
+      });
+    }
+
+    // 初始化 WaveSurfer.js
+    initializeWaveSurfer();
+
+    // ===== 事件監聽 =====
+    // 1. 「選擇」按鈕：切換選擇模式
+    selectBtn.addEventListener('click', async () => {
+      isSelectMode = !isSelectMode;
+
+      if (isSelectMode) {
+        selectBtn.classList.add('select-mode-active');
+        modeIndicator.textContent = '選擇模式啟動';
+        modeIndicator.classList.add('selecting');
+        showMessage('選擇模式已啟動');
+
+        // 顯示波形圖容器
+        waveformContainer.style.display = 'block';
+
+        // 如果尚未請求過麥克風權限，現在請求
+        if (!hasRequestedMicrophone) {
+          try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            hasRequestedMicrophone = true;
+            showMessage('麥克風權限已獲取', 'success');
+          } catch (error) {
+            console.error('無法取得麥克風權限:', error);
+            showMessage('錄音功能需要麥克風權限，請允許後再試一次。', 'error');
+            // 自動退出選擇模式
+            isSelectMode = false;
+            selectBtn.classList.remove('select-mode-active');
+            modeIndicator.textContent = '一般模式';
+            modeIndicator.classList.remove('selecting');
+            // 隱藏波形圖容器
+            waveformContainer.style.display = 'none';
+          }
+        }
+      } else {
+        selectBtn.classList.remove('select-mode-active');
+        modeIndicator.textContent = '一般模式';
+        modeIndicator.classList.remove('selecting');
+        showMessage('已退出選擇模式');
+        // 離開選擇模式時，清空任何選擇
+        clearSelectedPad();
+        // 隱藏波形圖容器並清除波形
+        waveformContainer.style.display = 'none';
+        wavesurfer.empty();
+      }
+    });
+
+    // 2. 下排按鈕：在選擇模式下選取要編輯的按鈕；或在一般模式下播放音檔
+    padButtons.forEach((padBtn) => {
+      padBtn.addEventListener('click', () => {
+        const index = parseInt(padBtn.dataset.index, 10);
+
+        // 添加點擊效果
+        padBtn.classList.add('active');
+        setTimeout(() => {
+          padBtn.classList.remove('active');
+        }, 100);
+
+        if (isSelectMode) {
+          selectPad(index);
+        } else {
+          playAudioClip(index);
+          // 添加播放效果
+          padBtn.classList.add('playing');
+          setTimeout(() => {
+            padBtn.classList.remove('playing');
+          }, 300);
+        }
+      });
+    });
+
+    // 3. 「錄音」按鈕：在選擇模式下錄製音檔
+    recordBtn.addEventListener('click', () => {
+      if (!isSelectMode || selectedPadIndex === null) {
+        showMessage('請先進入選擇模式並選擇一個按鈕!', 'error');
+        return;
+      }
+
+      if (!hasRequestedMicrophone || !mediaStream) {
+        showMessage('錄音功能尚未啟用，請進入選擇模式以啟用麥克風。', 'error');
+        return;
+      }
+
+      try {
+        mediaRecorder = new MediaRecorder(mediaStream);
+      } catch (error) {
+        console.error('無法建立 MediaRecorder:', error);
+        showMessage('錄音失敗，瀏覽器可能不支援此功能。', 'error');
+        return;
+      }
+
+      audioChunks = [];
+
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      });
+
+      mediaRecorder.addEventListener('stop', () => {
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        audioClips[selectedPadIndex].push(audioBlob);
+        padButtons[selectedPadIndex].classList.add('has-audio');
+        showMessage(`已完成錄音，儲存在按鈕 ${selectedPadIndex + 1}`, 'success');
+
+        stopTimer();
+        recordBtn.classList.remove('recording');
+        // 隱藏錄音控制按鈕
+        stopBtn.style.display = 'none';
+        pauseBtn.style.display = 'none';
+        resumeBtn.style.display = 'none';
+
+        // 載入波形圖
+        loadWaveform(audioBlob);
+      });
+
+      mediaRecorder.start();
+      showMessage('開始錄音...');
+      startTimer();
+      recordBtn.classList.add('recording');
+
+      // 顯示停止錄音按鈕
+      stopBtn.style.display = 'inline-block';
+
+      // 設定錄音時長
+      setTimeout(() => {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+        }
+      }, currentRecordingDuration * 1000);
+    });
+
+    // 4. 「停止錄音」按鈕：手動停止錄音
+    stopBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        showMessage('錄音已停止', 'success');
+        recordBtn.classList.remove('recording');
+        // 隱藏停止錄音按鈕
+        stopBtn.style.display = 'none';
+        pauseBtn.style.display = 'none';
+        resumeBtn.style.display = 'none';
+      }
+    });
+
+    // 5. 「暫停錄音」按鈕
+    pauseBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.pause();
+        showMessage('錄音已暫停', 'success');
+        pauseBtn.style.display = 'none';
+        resumeBtn.style.display = 'inline-block';
+      }
+    });
+
+    // 6. 「繼續錄音」按鈕
+    resumeBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state === 'paused') {
+        mediaRecorder.resume();
+        showMessage('繼續錄音...', 'success');
+        pauseBtn.style.display = 'inline-block';
+        resumeBtn.style.display = 'none';
+      }
+    });
+
+    // 7. 「刪除」按鈕：在選擇模式下刪除指定按鈕的音檔
+    deleteBtn.addEventListener('click', () => {
+      if (!isSelectMode || selectedPadIndex === null) {
+        showMessage('請先進入選擇模式並選擇一個按鈕!', 'error');
+        return;
+      }
+
+      // 刪除對應按鈕的所有音檔
+      audioClips[selectedPadIndex] = [];
+      padButtons[selectedPadIndex].classList.remove('has-audio');
+      showMessage(`已刪除按鈕 ${selectedPadIndex + 1} 的所有音檔`, 'success');
+      // 清除波形圖
+      wavesurfer.empty();
+    });
+
+    // 8. 錄音時長選擇器
+    durationSelector.addEventListener('change', () => {
+      updateRecordingDuration();
+      showMessage(`錄音時長已設定為 ${currentRecordingDuration} 秒`, 'success');
+    });
+
+    // 9. 添加鍵盤控制
+    document.addEventListener('keydown', (event) => {
+      if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      const keyMap = {
+        'q': 0,
+        'w': 1,
+        'e': 2,
+        'r': 3,
+        't': 4
+      };
+
+      const index = keyMap[event.key.toLowerCase()];
+      
+      if (index !== undefined) {
+        const padBtn = padButtons[index];
+        
+        // 添加點擊效果
+        padBtn.classList.add('active');
+        setTimeout(() => {
+          padBtn.classList.remove('active');
+        }, 100);
+
+        if (isSelectMode) {
+          selectPad(index);
+        } else {
+          playAudioClip(index);
+          // 添加播放效果
+          padBtn.classList.add('playing');
+          setTimeout(() => {
+            padBtn.classList.remove('playing');
+          }, 300);
+        }
+      }
+    });
+
+    // ===== 輔助函式 =====
+    // 選擇下排按鈕
+    function selectPad(index) {
+      // 如果已經選擇過其他按鈕，先清除舊的
+      clearSelectedPad();
+      selectedPadIndex = index;
+      padButtons[index].classList.add('selected');
+      showMessage(`已選擇按鈕 ${index + 1}`, 'success');
+
+      // 載入最新錄音的波形圖（如果存在）
+      if (audioClips[index].length > 0) {
+        const latestClip = audioClips[index][audioClips[index].length - 1];
+        loadWaveform(latestClip);
+      } else {
+        // 清除波形圖
+        wavesurfer.empty();
+      }
+    }
+
+    // 清除當前選擇的按鈕
+    function clearSelectedPad() {
+      if (selectedPadIndex !== null) {
+        padButtons[selectedPadIndex].classList.remove('selected');
+        showMessage(`已取消選擇按鈕 ${selectedPadIndex + 1}`, 'success');
+      }
+      selectedPadIndex = null;
+    }
+
+    // 播放已錄製音檔並同步波形圖
+    function playAudioClip(index) {
+      if (audioClips[index].length === 0) {
+        showMessage('此按鈕尚未錄製音檔', 'error');
+        return;
+      }
+
+      // 播放最新的錄音
+      const latestClip = audioClips[index][audioClips[index].length - 1];
+      const audioURL = URL.createObjectURL(latestClip);
+      
+      // 載入波形圖
+      wavesurfer.load(audioURL);
+      wavesurfer.on('ready', () => {
+        wavesurfer.play();
+        showMessage(`正在播放音檔 ${index + 1}...`, 'success');
+      });
+      wavesurfer.on('finish', () => {
+        showMessage(`音檔 ${index + 1} 播放完畢。`, 'success');
+      });
+      wavesurfer.on('error', (e) => {
+        console.error(e);
+        showMessage('播放波形圖時發生錯誤。', 'error');
+      });
+    }
+
+    /**
+     * 載入並顯示波形圖
+     * @param {Blob} audioBlob 錄製的音訊 Blob
+     */
+    function loadWaveform(audioBlob) {
+      const audioURL = URL.createObjectURL(audioBlob);
+      wavesurfer.load(audioURL);
+      wavesurfer.on('ready', () => {
+        waveformContainer.style.display = 'block';
+      });
+      wavesurfer.on('error', (e) => {
+        console.error(e);
+        showMessage('載入波形圖時發生錯誤。', 'error');
+      });
+    }
+
+    // 開始計時器
+    function startTimer() {
+      let seconds = 0;
+      timerDisplay.textContent = '00:00';
+      
+      timerInterval = setInterval(() => {
+        seconds++;
+        if (seconds >= currentRecordingDuration) { // 根據設定的錄音時長
+          stopTimer();
+          if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+        }
+        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        timerDisplay.textContent = `${mins}:${secs}`;
+      }, 1000);
+    }
+
+    // 停止計時器
+    function stopTimer() {
+      clearInterval(timerInterval);
+      timerDisplay.textContent = '00:00';
+    }
+  </script>
+</body>
+</html>
