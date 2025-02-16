@@ -1,5 +1,6 @@
 # Improvisation_sampler_functional_prototype
-<img width="513" alt="image" src="https://github.com/user-attachments/assets/44ff5eae-acae-4344-aaa0-97f709b86dd4" />
+
+<img width="513" alt="image" src="https://github.com/user-attachments/assets/c338bad1-9ee6-448d-9f66-1756242f3882" />
 
 具體而言，我們初步設想設計一個簡易的取樣機，讓使用者能錄製並採集日常生活的聲音，並透過一對一映射的方式輸入至取樣機的按鍵。使用者亦可自製按鍵外觀的視覺符號，以形成聲音與符號之間的對應。此設計理念部分參考視覺元素可作為引導使用者探索聲音的媒介。此裝置除了可作為即興演奏的樂器，我們也希望它能成為使用者之間交換聲音經驗的橋樑：使用者可相互交換自己錄製的聲音檔案，並在即興場合中共同作為演奏素材。學習者彼此分享音樂素材是一個關鍵環節。
 
